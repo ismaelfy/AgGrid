@@ -1,0 +1,99 @@
+class AGGridHelper {
+    
+    private $filterModel;
+    private $paginationParams;
+
+    public function __construct() {
+        // Obtener datos del filtro del POST o de php://input si es una solicitud JSON
+        $postData = $_POST ?: json_decode(file_get_contents('php://input'), true);
+        
+        $this->filterModel = isset($postData['filterModel']) ? $postData['filterModel'] : [];
+        $this->paginationParams = isset($postData['paginationParams']) ? $postData['paginationParams'] : ['startRow' => 0, 'endRow' => 10];
+    }
+
+    public function getWhereClause() {
+        $whereClause = "";
+        
+        foreach ($this->filterModel as $field => $filter) {
+            if (!empty($filter['filter'])) {
+                if ($whereClause !== "") {
+                    $whereClause .= " AND ";
+                }
+                switch ($filter['type']) {
+                    case 'text':
+                        $whereClause .= $this->processTextFilter($field, $filter);
+                        break;
+                    case 'number':
+                        $whereClause .= $this->processNumberFilter($field, $filter);
+                        break;
+                    case 'date':
+                        $whereClause .= $this->processDateFilter($field, $filter);
+                        break;
+                    default:
+                        // Otros tipos de filtro no necesitan condiciones WHERE
+                        break;
+                }
+            }
+        }
+        
+        return $whereClause;
+    }
+
+    private function processTextFilter($field, $filter) {
+        switch ($filter['filterType']) {
+            case 'startsWith':
+                return "$field LIKE '{$filter['filter']}%'";
+            case 'endsWith':
+                return "$field LIKE '%{$filter['filter']}'";
+            case 'contains':
+                return "$field LIKE '%{$filter['filter']}%'";
+            case 'notEqual':
+                return "$field <> '{$filter['filter']}'";
+            default:
+                return ""; // Otros tipos de filtro no necesitan condiciones WHERE
+        }
+    }
+
+    private function processNumberFilter($field, $filter) {
+        switch ($filter['filterType']) {
+            case 'equals':
+                return "$field = {$filter['filter']}";
+            case 'notEqual':
+                return "$field <> {$filter['filter']}";
+            case 'lessThan':
+                return "$field < {$filter['filter']}";
+            case 'greaterThan':
+                return "$field > {$filter['filter']}";
+            case 'inRange':
+                return "$field BETWEEN {$filter['filter'][0]} AND {$filter['filter'][1]}";
+            default:
+                return ""; // Otros tipos de filtro no necesitan condiciones WHERE
+        }
+    }
+
+    private function processDateFilter($field, $filter) {
+        switch ($filter['filterType']) {
+            case 'equals':
+                return "$field = '{$filter['filter']}'";
+            case 'notEqual':
+                return "$field <> '{$filter['filter']}'";
+            case 'lessThan':
+                return "$field < '{$filter['filter']}'";
+            case 'greaterThan':
+                return "$field > '{$filter['filter']}'";
+            case 'inRange':
+                return "$field BETWEEN '{$filter['filter'][0]}' AND '{$filter['filter'][1]}'";
+            default:
+                return ""; // Otros tipos de filtro no necesitan condiciones WHERE
+        }
+    }
+}
+
+// Ejemplo de uso:
+
+// Crear una instancia de AGGridHelper
+$helper = new AGGridHelper();
+
+// Obtener la cláusula WHERE para la consulta SQL
+$whereClause = $helper->getWhereClause();
+echo "WHERE Clause: $whereClause\n";
